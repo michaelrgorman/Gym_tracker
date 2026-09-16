@@ -1,12 +1,12 @@
 // ---------- Supabase client ----------
-let supabase = null;
+let supabaseClient = null;
 let supabaseInitError = null;
 
 try {
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
     throw new Error('Supabase credentials not set in config.js');
   }
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 } catch (err) {
   supabaseInitError = err;
   console.error(err);
@@ -43,7 +43,7 @@ async function checkConnection() {
   }
 
   try {
-    const { error } = await supabase.from('Workout_Exercise').select('id').limit(1);
+    const { error } = await supabaseClient.from('Workout_Exercise').select('id').limit(1);
 
     if (error) {
       dot.classList.add('error');
