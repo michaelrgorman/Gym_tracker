@@ -442,24 +442,33 @@ label {
 }
 
 .exercise-search-results {
-  max-height: 200px;
+  max-height: 280px;
   overflow-y: auto;
   margin-top: 8px;
+  border: 1px solid var(--border);
+}
+
+.exercise-group-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  padding: 8px 12px 4px;
+  background: var(--surface-raised);
 }
 
 .exercise-search-item {
   padding: 10px 12px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-top: none;
+  border-top: 1px solid var(--border);
   font-size: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.exercise-search-item:first-child {
-  border-top: 1px solid var(--border);
+.exercise-group:first-child .exercise-search-item:first-child {
+  border-top: none;
 }
 
 .new-exercise-toggle {

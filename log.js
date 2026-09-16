@@ -296,6 +296,7 @@ function attachActiveWorkoutHandlers() {
 
   const searchInput = document.getElementById('exercise-search-input');
   searchInput.addEventListener('input', () => renderExerciseSearchResults(searchInput.value));
+  renderExerciseSearchResults('');
 
   document.getElementById('new-exercise-toggle').addEventListener('click', () => {
     const form = document.getElementById('new-exercise-form');
@@ -309,21 +310,43 @@ function attachActiveWorkoutHandlers() {
   document.getElementById('rest-timer-skip').addEventListener('click', stopRestTimer);
 }
 
+function groupExercises(list) {
+  const groups = {};
+  list.forEach(e => {
+    const key = (e.muscle_group && e.muscle_group.trim()) || 'Other';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(e);
+  });
+  return groups;
+}
+
 function renderExerciseSearchResults(query) {
   const resultsEl = document.getElementById('exercise-search-results');
-  if (!query || query.length < 1) {
-    resultsEl.innerHTML = '';
+  const q = (query || '').toLowerCase().trim();
+
+  const filtered = logState.exerciseCatalog.filter(e => !q || e.name.toLowerCase().includes(q));
+
+  if (filtered.length === 0) {
+    resultsEl.innerHTML = `<div class="inline-message">No exercises match "${escapeHtml(query)}".</div>`;
     return;
   }
 
-  const q = query.toLowerCase();
-  const matches = logState.exerciseCatalog
-    .filter(e => e.name.toLowerCase().includes(q))
-    .slice(0, 8);
+  const groups = groupExercises(filtered);
+  const sortedGroupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
 
-  resultsEl.innerHTML = matches.map(e => {
-    const category = getLiftCategory(e.name);
-    return `<div class="exercise-search-item" data-exercise-id="${e.id}">${liftDot(category)}${escapeHtml(e.name)}</div>`;
+  resultsEl.innerHTML = sortedGroupNames.map(groupName => {
+    const items = groups[groupName]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(e => {
+        const category = getLiftCategory(e.name);
+        return `<div class="exercise-search-item" data-exercise-id="${e.id}">${liftDot(category)}${escapeHtml(e.name)}</div>`;
+      }).join('');
+    return `
+      <div class="exercise-group">
+        <div class="exercise-group-label">${escapeHtml(groupName)}</div>
+        ${items}
+      </div>
+    `;
   }).join('');
 
   resultsEl.querySelectorAll('.exercise-search-item').forEach(item => {
