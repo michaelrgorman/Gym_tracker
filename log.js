@@ -23,6 +23,33 @@ function calcE1RM(weightKg, reps) {
   return weightKg * (1 + reps / 30);
 }
 
+async function fetchPreviousSetsForExercise(exerciseId) {
+  try {
+    const { data, error } = await supabaseClient
+      .from('Workout_Set')
+      .select('weight_kg, reps, set_type, set_index, Workout_Session!inner(start_time)')
+      .eq('exercise_id', exerciseId);
+
+    if (error) throw error;
+    if (!data || data.length === 0) return null;
+
+    let maxTs = 0;
+    data.forEach(r => {
+      const ts = new Date(r.Workout_Session.start_time).getTime();
+      if (ts > maxTs) maxTs = ts;
+    });
+
+    const lastSets = data
+      .filter(r => new Date(r.Workout_Session.start_time).getTime() === maxTs)
+      .sort((a, b) => a.set_index - b.set_index);
+
+    return { date: new Date(maxTs), sets: lastSets };
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
 function getLiftCategory(name) {
   const n = (name || '').toLowerCase();
   if (n.includes('squat')) return 'squat';
@@ -42,6 +69,10 @@ function formatElapsed(startIso) {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function formatDateShort(ms) {
+  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 function escapeHtml(str) {
@@ -124,6 +155,7 @@ function renderStartScreen() {
     <div class="section-label">Templates</div>
     ${templatesHtml}
     <button class="btn-secondary finish-btn" id="start-blank-btn">Start blank workout</button>
+    <button class="new-exercise-toggle" id="create-template-btn" style="display:block; margin-top:12px;">+ Create new template</button>
   `;
 
   root.querySelectorAll('.start-template-btn').forEach(btn => {
@@ -134,6 +166,7 @@ function renderStartScreen() {
   });
 
   document.getElementById('start-blank-btn').addEventListener('click', startBlankWorkout);
+  document.getElementById('create-template-btn').addEventListener('click', () => openTemplateBuilder());
 }
 
 function startBlankWorkout() {
@@ -157,10 +190,20 @@ function startFromTemplate(template) {
       is_main_lift: e.is_main_lift,
       target_sets: e.target_sets,
       target_reps: e.target_reps,
-      sets: []
+      sets: [],
+      previous: null
     }))
   };
   renderActiveWorkout();
+
+  // Fetch "last time" data per exercise, then re-render once it's in
+  Promise.all(
+    logState.session.exercises.map((ex, i) =>
+      fetchPreviousSetsForExercise(ex.exercise_id).then(prev => { ex.previous = prev; })
+    )
+  ).then(() => {
+    if (logState.session) renderActiveWorkout();
+  });
 }
 
 // ---------- Active workout ----------
@@ -254,16 +297,26 @@ function renderExerciseBlock(ex, exIndex) {
     ? `<span class="exercise-target">Target: ${ex.target_sets}×${ex.target_reps}</span>`
     : '';
 
+  const previousLine = ex.previous
+    ? `<div class="exercise-previous">Last time (${formatDateShort(ex.previous.date.getTime())}): ${ex.previous.sets.map(s => `${s.weight_kg}×${s.reps}`).join(', ')}</div>`
+    : '';
+
+  const nextIndex = ex.sets.length;
+  const prevSet = ex.previous && ex.previous.sets[nextIndex];
+  const prefillWeight = prevSet ? prevSet.weight_kg : '';
+  const prefillReps = prevSet ? prevSet.reps : '';
+
   return `
     <div class="exercise-block">
       <div class="exercise-block-header">
         <span class="exercise-name">${liftDot(category)}${escapeHtml(ex.name)}</span>
         ${bestE1rm ? `<span class="exercise-e1rm">e1RM ${bestE1rm.toFixed(1)} kg</span>` : targetLabel}
       </div>
+      ${previousLine}
       <div class="set-list">${setsHtml}</div>
       <div class="add-set-form">
-        <div class="field"><label>Weight (kg)</label><input type="number" step="0.5" class="set-weight-input" data-ex="${exIndex}"></div>
-        <div class="field"><label>Reps</label><input type="number" step="1" class="set-reps-input" data-ex="${exIndex}"></div>
+        <div class="field"><label>Weight (kg)</label><input type="number" step="0.5" class="set-weight-input" data-ex="${exIndex}" value="${prefillWeight}"></div>
+        <div class="field"><label>Reps</label><input type="number" step="1" class="set-reps-input" data-ex="${exIndex}" value="${prefillReps}"></div>
         <div class="field"><label>RPE</label><input type="number" step="0.5" min="1" max="10" class="set-rpe-input" data-ex="${exIndex}"></div>
         <div class="field">
           <label>Type</label>
@@ -358,15 +411,22 @@ function renderExerciseSearchResults(query) {
 }
 
 function addExerciseToSession(exercise) {
-  logState.session.exercises.push({
+  const ex = {
     exercise_id: exercise.id,
     name: exercise.name,
     is_main_lift: exercise.is_main_lift,
     target_sets: null,
     target_reps: null,
-    sets: []
-  });
+    sets: [],
+    previous: null
+  };
+  logState.session.exercises.push(ex);
   renderActiveWorkout();
+
+  fetchPreviousSetsForExercise(exercise.id).then(prev => {
+    ex.previous = prev;
+    if (logState.session) renderActiveWorkout();
+  });
 }
 
 async function createNewExercise() {
@@ -510,7 +570,19 @@ async function finishWorkout() {
 
     if (logState.elapsedInterval) clearInterval(logState.elapsedInterval);
     stopRestTimer();
+
+    const finishedTitle = session.title;
+    const finishedExercises = session.exercises.map(ex => ({
+      exercise_id: ex.exercise_id,
+      name: ex.name,
+      target_sets: ex.sets.length,
+      target_reps: mostCommonValue(ex.sets.filter(s => s.set_type !== 'warmup').map(s => s.reps))
+    }));
+
     logState.session = null;
+
+    if (typeof invalidateMainLiftCache === 'function') invalidateMainLiftCache();
+    if (typeof historyState !== 'undefined') historyState.loaded = false;
 
     document.getElementById('log-root').innerHTML = `
       <div class="empty-state">
@@ -518,8 +590,12 @@ async function finishWorkout() {
         <p>${totalSets} set${totalSets === 1 ? '' : 's'} logged. Check the History tab to see it.</p>
       </div>
       <button class="btn-primary" id="log-another-btn">Start another workout</button>
+      <button class="btn-secondary finish-btn" id="save-as-template-btn">Save as template</button>
     `;
     document.getElementById('log-another-btn').addEventListener('click', renderStartScreen);
+    document.getElementById('save-as-template-btn').addEventListener('click', () => {
+      openTemplateBuilder({ name: finishedTitle, exercises: finishedExercises });
+    });
 
   } catch (err) {
     console.error(err);

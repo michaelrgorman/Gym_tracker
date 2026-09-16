@@ -26,14 +26,28 @@ function switchTab(targetId) {
   headerTitle.textContent = activeView.dataset.title;
   headerSubline.textContent = activeView.dataset.subline;
 
+  if (targetId === 'view-home' && typeof onHomeTabShown === 'function') {
+    onHomeTabShown();
+  }
   if (targetId === 'view-log' && typeof onLogTabShown === 'function') {
     onLogTabShown();
+  }
+  if (targetId === 'view-history' && typeof onHistoryTabShown === 'function') {
+    onHistoryTabShown();
+  }
+  if (targetId === 'view-progress' && typeof onProgressTabShown === 'function') {
+    onProgressTabShown();
+  }
+  if (targetId === 'view-best' && typeof onBestTabShown === 'function') {
+    onBestTabShown();
   }
 }
 
 navButtons.forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.dataset.target));
 });
+
+document.getElementById('home-start-workout-btn').addEventListener('click', () => switchTab('view-log'));
 
 // ---------- Connection check ----------
 async function checkConnection() {

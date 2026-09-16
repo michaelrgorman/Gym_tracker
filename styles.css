@@ -376,6 +376,12 @@ label {
   color: var(--text-muted);
 }
 
+.exercise-previous {
+  font-size: 12px;
+  color: var(--text-faint);
+  padding: 8px 14px 0;
+}
+
 .set-list {
   padding: 4px 14px;
 }
@@ -560,3 +566,244 @@ label {
   font-size: 12px;
   padding: 6px 10px;
 }
+
+/* ---------- History ---------- */
+
+.session-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  margin-bottom: 8px;
+}
+
+.session-card .session-title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 2px;
+}
+
+.session-card .session-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.session-card .session-exercises {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.detail-header {
+  margin-bottom: 16px;
+}
+
+.detail-header .session-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.detail-header .session-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.detail-exercise-block {
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+.detail-exercise-header {
+  padding: 10px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.detail-set-row {
+  display: grid;
+  grid-template-columns: 20px 1fr 1fr 1fr 60px;
+  gap: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-set-row:last-child { border-bottom: none; }
+.detail-set-row .set-num { color: var(--text-faint); font-family: var(--font-display); }
+.detail-set-row .set-type-tag { text-align: right; color: var(--text-muted); font-size: 11px; }
+
+/* ---------- Progress ---------- */
+
+.lift-progress-card {
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.lift-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--surface);
+}
+
+.lift-progress-header .lift-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.lift-progress-header .lift-current {
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.chart-container {
+  padding: 10px 14px 14px;
+}
+
+.trend-chart {
+  width: 100%;
+  height: 80px;
+  display: block;
+}
+
+.chart-empty {
+  padding: 16px 0;
+  font-size: 13px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.chart-single {
+  padding: 12px 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  text-align: center;
+}
+
+.chart-single-date {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.bodyweight-form {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.bodyweight-form .field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.bodyweight-form button {
+  background: var(--text);
+  color: var(--bg);
+  border: none;
+  font-weight: 600;
+  padding: 10px 16px;
+  height: 41px;
+  flex-shrink: 0;
+}
+
+/* ---------- Best Lifts ---------- */
+
+.pr-card {
+  border: 1px solid var(--border);
+  padding: 16px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pr-card .pr-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.pr-card .pr-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.pr-card .pr-value {
+  text-align: right;
+}
+
+.pr-card .pr-e1rm {
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.pr-card .pr-unit {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pr-card.empty .pr-e1rm {
+  color: var(--text-faint);
+  font-size: 15px;
+  font-family: var(--font-body);
+}
+
+/* ---------- History edit mode ---------- */
+
+.edit-set-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 30px 30px;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.edit-set-row:last-child { border-bottom: none; }
+
+.edit-set-row input,
+.edit-set-row select {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.edit-save-btn, .edit-delete-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
+  padding: 6px 0;
+}
+
+.edit-save-btn { color: var(--success); border-color: var(--success); }
+.edit-delete-btn { color: var(--danger); border-color: var(--danger); }

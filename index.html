@@ -25,7 +25,9 @@
 
 <!-- ============ HOME ============ -->
 <section class="view active" id="view-home" data-title="Home" data-subline="Iron Log">
-  <div class="card">
+  <button class="btn-primary" id="home-start-workout-btn">Start workout</button>
+
+  <div class="card" style="margin-top: 16px;">
     <div class="section-label">Connection</div>
     <span class="status-pill" id="connection-status">
       <span class="status-dot" id="connection-dot"></span>
@@ -33,10 +35,7 @@
     </span>
   </div>
 
-  <div class="empty-state">
-    <div class="num">Nothing logged yet</div>
-    <p>Once the Log tab is wired up, your next workout, active program, and recent sessions will show up here.</p>
-  </div>
+  <div id="home-root"></div>
 </section>
 
 <!-- ============ LOG ============ -->
@@ -54,38 +53,17 @@
 
 <!-- ============ HISTORY ============ -->
 <section class="view" id="view-history" data-title="History" data-subline="Past sessions">
-  <div class="empty-state">
-    <div class="num">No sessions yet</div>
-    <p>Completed workouts will appear here, most recent first.</p>
-  </div>
+  <div id="history-root"></div>
 </section>
 
 <!-- ============ PROGRESS ============ -->
 <section class="view" id="view-progress" data-title="Progress" data-subline="e1RM and bodyweight trends">
-  <div class="empty-state">
-    <div class="num">Nothing to graph yet</div>
-    <p>e1RM trends per lift and your bodyweight log will show up here once you've logged a few sessions.</p>
-  </div>
+  <div id="progress-root"></div>
 </section>
 
 <!-- ============ BEST LIFTS ============ -->
 <section class="view" id="view-best" data-title="Best Lifts" data-subline="All-time PRs">
-  <div class="card">
-    <span class="lift-tag"><span class="lift-dot squat"></span>Squat</span>
-  </div>
-  <div class="card">
-    <span class="lift-tag"><span class="lift-dot bench"></span>Bench Press</span>
-  </div>
-  <div class="card">
-    <span class="lift-tag"><span class="lift-dot deadlift"></span>Deadlift</span>
-  </div>
-  <div class="card">
-    <span class="lift-tag"><span class="lift-dot ohp"></span>Overhead Press</span>
-  </div>
-  <div class="empty-state">
-    <div class="num">No PRs logged yet</div>
-    <p>Your best e1RM and the date it was set will show here for each main lift.</p>
-  </div>
+  <div id="best-root"></div>
 </section>
 
 <!-- ============ BOTTOM NAV ============ -->
@@ -116,5 +94,7 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script src="log.js"></script>
+<script src="views.js"></script>
+<script src="templates.js"></script>
 </body>
 </html>
