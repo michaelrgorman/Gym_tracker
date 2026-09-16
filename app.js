@@ -1,5 +1,16 @@
 // ---------- Supabase client ----------
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let supabase = null;
+let supabaseInitError = null;
+
+try {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
+    throw new Error('Supabase credentials not set in config.js');
+  }
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch (err) {
+  supabaseInitError = err;
+  console.error(err);
+}
 
 // ---------- Tab navigation ----------
 const navButtons = document.querySelectorAll('.nav-btn');
@@ -25,21 +36,27 @@ async function checkConnection() {
   const dot = document.getElementById('connection-dot');
   const text = document.getElementById('connection-text');
 
-  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+  if (supabaseInitError) {
     dot.classList.add('error');
     text.textContent = 'Add your Supabase URL/key in config.js';
     return;
   }
 
-  const { error } = await supabase.from('Workout_Exercise').select('id').limit(1);
+  try {
+    const { error } = await supabase.from('Workout_Exercise').select('id').limit(1);
 
-  if (error) {
+    if (error) {
+      dot.classList.add('error');
+      text.textContent = 'Connection failed — check config.js and RLS policies';
+      console.error(error);
+    } else {
+      dot.classList.add('connected');
+      text.textContent = 'Connected to Supabase';
+    }
+  } catch (err) {
     dot.classList.add('error');
-    text.textContent = 'Connection failed — check config.js and RLS policies';
-    console.error(error);
-  } else {
-    dot.classList.add('connected');
-    text.textContent = 'Connected to Supabase';
+    text.textContent = 'Connection failed — check config.js';
+    console.error(err);
   }
 }
 
