@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<title>Iron Log</title>
+<meta name="description" content="Powerlifting-focused workout tracker">
+<meta name="theme-color" content="#15161A">
+
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Iron Log">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <h1 id="header-title">Home</h1>
+  <div class="subline" id="header-subline">Iron Log</div>
+</header>
+
+<!-- ============ HOME ============ -->
+<section class="view active" id="view-home" data-title="Home" data-subline="Iron Log">
+  <div class="card">
+    <div class="section-label">Connection</div>
+    <span class="status-pill" id="connection-status">
+      <span class="status-dot" id="connection-dot"></span>
+      <span id="connection-text">Checking…</span>
+    </span>
+  </div>
+
+  <div class="empty-state">
+    <div class="num">Nothing logged yet</div>
+    <p>Once the Log tab is wired up, your next workout, active program, and recent sessions will show up here.</p>
+  </div>
+</section>
+
+<!-- ============ LOG ============ -->
+<section class="view" id="view-log" data-title="Log" data-subline="Start or continue a workout">
+  <div class="empty-state">
+    <div class="num">Log — coming next</div>
+    <p>This is where you'll pick a template, continue your 5/3/1 program, or start blank, then log sets with a rest timer and add new exercises on the fly.</p>
+  </div>
+</section>
+
+<!-- ============ HISTORY ============ -->
+<section class="view" id="view-history" data-title="History" data-subline="Past sessions">
+  <div class="empty-state">
+    <div class="num">No sessions yet</div>
+    <p>Completed workouts will appear here, most recent first.</p>
+  </div>
+</section>
+
+<!-- ============ PROGRESS ============ -->
+<section class="view" id="view-progress" data-title="Progress" data-subline="e1RM and bodyweight trends">
+  <div class="empty-state">
+    <div class="num">Nothing to graph yet</div>
+    <p>e1RM trends per lift and your bodyweight log will show up here once you've logged a few sessions.</p>
+  </div>
+</section>
+
+<!-- ============ BEST LIFTS ============ -->
+<section class="view" id="view-best" data-title="Best Lifts" data-subline="All-time PRs">
+  <div class="card">
+    <span class="lift-tag"><span class="lift-dot squat"></span>Squat</span>
+  </div>
+  <div class="card">
+    <span class="lift-tag"><span class="lift-dot bench"></span>Bench Press</span>
+  </div>
+  <div class="card">
+    <span class="lift-tag"><span class="lift-dot deadlift"></span>Deadlift</span>
+  </div>
+  <div class="card">
+    <span class="lift-tag"><span class="lift-dot ohp"></span>Overhead Press</span>
+  </div>
+  <div class="empty-state">
+    <div class="num">No PRs logged yet</div>
+    <p>Your best e1RM and the date it was set will show here for each main lift.</p>
+  </div>
+</section>
+
+<!-- ============ BOTTOM NAV ============ -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-target="view-home">
+    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+    Home
+  </button>
+  <button class="nav-btn" data-target="view-log">
+    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+    Log
+  </button>
+  <button class="nav-btn" data-target="view-history">
+    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+    History
+  </button>
+  <button class="nav-btn" data-target="view-progress">
+    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+    Progress
+  </button>
+  <button class="nav-btn" data-target="view-best">
+    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+    Best
+  </button>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
