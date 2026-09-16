@@ -25,6 +25,10 @@ function switchTab(targetId) {
   const activeView = document.getElementById(targetId);
   headerTitle.textContent = activeView.dataset.title;
   headerSubline.textContent = activeView.dataset.subline;
+
+  if (targetId === 'view-log' && typeof onLogTabShown === 'function') {
+    onLogTabShown();
+  }
 }
 
 navButtons.forEach(btn => {

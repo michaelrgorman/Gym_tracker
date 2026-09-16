@@ -256,3 +256,298 @@ button {
 
 .status-dot.connected { background: var(--success); }
 .status-dot.error { background: var(--danger); }
+
+/* ---------- Form elements ---------- */
+
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--text-muted);
+}
+
+label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.field {
+  margin-bottom: 12px;
+}
+
+.field-row {
+  display: flex;
+  gap: 10px;
+}
+
+.field-row .field {
+  flex: 1;
+}
+
+/* ---------- Log: start screen ---------- */
+
+.template-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.template-item .name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.template-item .meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.template-item button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 14px;
+  flex-shrink: 0;
+}
+
+/* ---------- Log: active workout ---------- */
+
+.workout-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 16px;
+}
+
+.workout-header .elapsed {
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+
+.exercise-block {
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.exercise-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.exercise-name {
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exercise-e1rm {
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--deadlift);
+}
+
+.exercise-target {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.set-list {
+  padding: 4px 14px;
+}
+
+.set-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 1fr 1fr 60px 24px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.set-row:last-child {
+  border-bottom: none;
+}
+
+.set-row .set-num {
+  color: var(--text-faint);
+  font-family: var(--font-display);
+}
+
+.set-row .set-type-tag {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.set-row .set-delete {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 16px;
+  padding: 0;
+}
+
+.add-set-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--surface-raised);
+}
+
+.add-set-form select {
+  grid-column: span 4;
+}
+
+.add-set-form .add-set-btn {
+  grid-column: span 4;
+  background: var(--text);
+  color: var(--bg);
+  border: none;
+  font-weight: 600;
+  padding: 10px;
+  margin-top: 2px;
+}
+
+.add-exercise-section {
+  border: 1px dashed var(--border);
+  padding: 14px;
+  margin-top: 16px;
+}
+
+.exercise-search-results {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+.exercise-search-item {
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exercise-search-item:first-child {
+  border-top: 1px solid var(--border);
+}
+
+.new-exercise-toggle {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 8px 0 0;
+  text-decoration: underline;
+}
+
+.new-exercise-form {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.checkbox-field input {
+  width: auto;
+}
+
+.checkbox-field label {
+  margin-bottom: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.finish-btn {
+  margin-top: 20px;
+}
+
+.inline-message {
+  font-size: 13px;
+  padding: 10px 12px;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.inline-message.error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.inline-message.success {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+/* ---------- Rest timer banner ---------- */
+
+.rest-timer-banner {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--nav-height) + var(--safe-bottom) + 10px);
+  background: var(--surface-raised);
+  border: 1px solid var(--deadlift);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  z-index: 15;
+}
+
+.rest-timer-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.rest-timer-clock {
+  font-family: var(--font-display);
+  font-size: 18px;
+  flex: 1;
+}
+
+.rest-timer-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  padding: 6px 10px;
+}

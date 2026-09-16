@@ -1,9 +1,10 @@
-const CACHE_NAME = 'iron-log-v3';
+const CACHE_NAME = 'iron-log-v4';
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './log.js',
   './config.js',
   './manifest.json',
   './icons/icon-192.png',

@@ -41,11 +41,16 @@
 
 <!-- ============ LOG ============ -->
 <section class="view" id="view-log" data-title="Log" data-subline="Start or continue a workout">
-  <div class="empty-state">
-    <div class="num">Log — coming next</div>
-    <p>This is where you'll pick a template, continue your 5/3/1 program, or start blank, then log sets with a rest timer and add new exercises on the fly.</p>
-  </div>
+  <div id="log-root"></div>
 </section>
+
+<!-- Rest timer banner (hidden unless active) -->
+<div class="rest-timer-banner" id="rest-timer-banner" hidden>
+  <span class="rest-timer-label">Rest</span>
+  <span class="rest-timer-clock" id="rest-timer-clock">2:00</span>
+  <button class="rest-timer-btn" id="rest-timer-add30">+30s</button>
+  <button class="rest-timer-btn" id="rest-timer-skip">Skip</button>
+</div>
 
 <!-- ============ HISTORY ============ -->
 <section class="view" id="view-history" data-title="History" data-subline="Past sessions">
@@ -110,5 +115,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script src="app.js"></script>
+<script src="log.js"></script>
 </body>
 </html>
