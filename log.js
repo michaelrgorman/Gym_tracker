@@ -344,14 +344,19 @@ function renderExerciseBlock(ex, exIndex) {
     ? `<span class="exercise-target">Target: ${ex.target_sets}×${ex.target_reps}</span>`
     : '';
 
-  const previousLine = ex.previous
-    ? `<div class="exercise-previous">Last time (${formatDateShort(ex.previous.date.getTime())}): ${ex.previous.sets.map(s => `${s.weight_kg}×${s.reps}`).join(', ')}</div>`
-    : '';
-
   const nextIndex = ex.sets.length;
   const prevSet = ex.previous && ex.previous.sets[nextIndex];
   const prefillWeight = prevSet ? prevSet.weight_kg : '';
   const prefillReps = prevSet ? prevSet.reps : '';
+
+  const previousLine = ex.previous
+    ? `
+      <div class="previous-chip-row">
+        <span class="previous-chip-label">Last time (${formatDateShort(ex.previous.date.getTime())})</span>
+        ${ex.previous.sets.map((s, i) => `<span class="previous-chip${i === nextIndex ? ' next' : ''}">${s.weight_kg}×${s.reps}</span>`).join('')}
+      </div>
+    `
+    : '';
 
   const isPending = logState.pendingSupersetIndex === exIndex;
   const supersetLabel = ex.supersetGroup

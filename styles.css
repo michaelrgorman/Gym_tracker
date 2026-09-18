@@ -376,6 +376,38 @@ label {
   color: var(--text-muted);
 }
 
+.previous-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px 0;
+}
+
+.previous-chip-label {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-right: 2px;
+}
+
+.previous-chip {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.previous-chip.next {
+  color: var(--bg);
+  background: var(--deadlift);
+  border-color: var(--deadlift);
+  font-weight: 600;
+}
+
 .exercise-previous {
   font-size: 12px;
   color: var(--text-faint);
