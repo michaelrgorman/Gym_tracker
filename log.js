@@ -13,10 +13,49 @@ const logState = {
   programLoaded: false
 };
 
-const restTimerState = {
-  remaining: 0,
-  interval: null
-};
+// ---------- Persist the in-progress workout across app close/reopen ----------
+
+const ACTIVE_SESSION_STORAGE_KEY = 'iron-log-active-session';
+
+function saveSessionToStorage() {
+  try {
+    if (logState.session) {
+      localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, JSON.stringify(logState.session));
+    }
+  } catch (err) {
+    console.error('Failed to save in-progress workout:', err);
+  }
+}
+
+function clearSessionStorage() {
+  try {
+    localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+  } catch (err) {
+    console.error('Failed to clear saved workout:', err);
+  }
+}
+
+function restoreSessionFromStorage() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    // Date objects don't survive JSON round-trips — rehydrate them
+    (session.exercises || []).forEach(ex => {
+      if (ex.previous && ex.previous.date) {
+        ex.previous.date = new Date(ex.previous.date);
+      }
+    });
+    return session;
+  } catch (err) {
+    console.error('Failed to restore in-progress workout:', err);
+    return null;
+  }
+}
+
+// Restore any in-progress workout immediately so it's ready the moment
+// the Log tab is opened, even after the app was fully closed
+logState.session = restoreSessionFromStorage();
 
 // ---------- Helpers ----------
 
@@ -235,6 +274,8 @@ function renderActiveWorkout() {
   const root = document.getElementById('log-root');
   const session = logState.session;
 
+  saveSessionToStorage();
+
   if (logState.elapsedInterval) clearInterval(logState.elapsedInterval);
 
   const exercisesHtml = session.exercises.map((ex, i) => renderExerciseBlock(ex, i)).join('');
@@ -244,6 +285,7 @@ function renderActiveWorkout() {
       <h2>${escapeHtml(session.title)}</h2>
       <span class="elapsed" id="workout-elapsed">${formatElapsed(session.start_time)}</span>
     </div>
+    <button class="new-exercise-toggle" id="discard-workout-btn" style="margin-bottom: 12px;">Discard workout</button>
 
     <div class="field">
       <label>Session notes</label>
@@ -255,8 +297,8 @@ function renderActiveWorkout() {
     <div class="add-exercise-section" id="add-exercise-section">
       <div class="section-label">Add exercise</div>
       <input type="text" id="exercise-search-input" placeholder="Search exercises…">
+      <button class="btn-secondary" id="new-exercise-toggle" style="margin-top:8px;">+ Add a new exercise</button>
       <div class="exercise-search-results" id="exercise-search-results"></div>
-      <button class="new-exercise-toggle" id="new-exercise-toggle">+ Tag a new exercise</button>
       <div class="new-exercise-form" id="new-exercise-form" hidden>
         <div class="field">
           <label>Exercise name</label>
@@ -425,9 +467,15 @@ function renderExerciseBlock(ex, exIndex) {
 }
 
 function attachActiveWorkoutHandlers() {
+  const discardBtn = document.getElementById('discard-workout-btn');
+  if (discardBtn) discardBtn.addEventListener('click', discardWorkout);
+
   const notesInput = document.getElementById('session-notes-input');
   if (notesInput) {
-    notesInput.addEventListener('input', () => { logState.session.notes = notesInput.value; });
+    notesInput.addEventListener('input', () => {
+      logState.session.notes = notesInput.value;
+      saveSessionToStorage();
+    });
   }
 
   document.querySelectorAll('.add-set-btn').forEach(btn => {
@@ -450,6 +498,7 @@ function attachActiveWorkoutHandlers() {
   document.querySelectorAll('.exercise-notes-input').forEach(input => {
     input.addEventListener('input', () => {
       logState.session.exercises[Number(input.dataset.ex)].notes = input.value;
+      saveSessionToStorage();
     });
   });
 
@@ -460,13 +509,15 @@ function attachActiveWorkoutHandlers() {
   document.getElementById('new-exercise-toggle').addEventListener('click', () => {
     const form = document.getElementById('new-exercise-form');
     form.hidden = !form.hidden;
+    if (!form.hidden) {
+      const nameInput = document.getElementById('new-exercise-name');
+      if (!nameInput.value) nameInput.value = document.getElementById('exercise-search-input').value.trim();
+      nameInput.focus();
+    }
   });
 
   document.getElementById('create-exercise-btn').addEventListener('click', createNewExercise);
   document.getElementById('finish-workout-btn').addEventListener('click', finishWorkout);
-
-  document.getElementById('rest-timer-add30').addEventListener('click', () => adjustRestTimer(30));
-  document.getElementById('rest-timer-skip').addEventListener('click', stopRestTimer);
 }
 
 function groupExercises(list) {
@@ -486,7 +537,16 @@ function renderExerciseSearchResults(query) {
   const filtered = logState.exerciseCatalog.filter(e => !q || e.name.toLowerCase().includes(q));
 
   if (filtered.length === 0) {
-    resultsEl.innerHTML = `<div class="inline-message">No exercises match "${escapeHtml(query)}".</div>`;
+    resultsEl.innerHTML = `
+      <div class="inline-message">No exercises match "${escapeHtml(query)}".</div>
+      <button class="btn-secondary" id="add-searched-as-new-btn" style="margin-top:8px;">+ Add "${escapeHtml(query)}" as a new exercise</button>
+    `;
+    const addBtn = document.getElementById('add-searched-as-new-btn');
+    if (addBtn) {
+      addBtn.addEventListener('click', () => {
+        document.getElementById('new-exercise-toggle').click();
+      });
+    }
     return;
   }
 
@@ -589,45 +649,14 @@ function addSet(exIndex) {
   });
 
   renderActiveWorkout();
-  startRestTimer(120);
 }
 
-// ---------- Rest timer ----------
-
-function startRestTimer(seconds) {
-  restTimerState.remaining = seconds;
-  updateRestTimerDisplay();
-  document.getElementById('rest-timer-banner').hidden = false;
-
-  if (restTimerState.interval) clearInterval(restTimerState.interval);
-  restTimerState.interval = setInterval(() => {
-    restTimerState.remaining -= 1;
-    updateRestTimerDisplay();
-    if (restTimerState.remaining <= 0) {
-      stopRestTimer();
-      if (navigator.vibrate) {
-        try { navigator.vibrate(200); } catch (e) { /* ignore */ }
-      }
-    }
-  }, 1000);
-}
-
-function adjustRestTimer(deltaSeconds) {
-  restTimerState.remaining += deltaSeconds;
-  updateRestTimerDisplay();
-}
-
-function stopRestTimer() {
-  if (restTimerState.interval) clearInterval(restTimerState.interval);
-  restTimerState.interval = null;
-  document.getElementById('rest-timer-banner').hidden = true;
-}
-
-function updateRestTimerDisplay() {
-  const m = Math.floor(Math.max(0, restTimerState.remaining) / 60);
-  const s = Math.max(0, restTimerState.remaining) % 60;
-  const clockEl = document.getElementById('rest-timer-clock');
-  if (clockEl) clockEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+function discardWorkout() {
+  if (!confirm('Discard this workout? Nothing logged in it will be saved.')) return;
+  if (logState.elapsedInterval) clearInterval(logState.elapsedInterval);
+  logState.session = null;
+  clearSessionStorage();
+  renderStartScreen();
 }
 
 // ---------- Finish workout ----------
@@ -682,7 +711,6 @@ async function finishWorkout() {
     if (setsError) throw setsError;
 
     if (logState.elapsedInterval) clearInterval(logState.elapsedInterval);
-    stopRestTimer();
 
     const finishedTitle = session.title;
     const finishedExercises = session.exercises.map(ex => ({
@@ -693,6 +721,7 @@ async function finishWorkout() {
     }));
 
     logState.session = null;
+    clearSessionStorage();
 
     if (typeof invalidateMainLiftCache === 'function') invalidateMainLiftCache();
     if (typeof historyState !== 'undefined') historyState.loaded = false;

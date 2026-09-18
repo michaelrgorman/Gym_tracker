@@ -568,34 +568,6 @@ label {
   color: var(--success);
 }
 
-/* ---------- Rest timer banner ---------- */
-
-.rest-timer-banner {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: calc(var(--nav-height) + var(--safe-bottom) + 10px);
-  background: var(--surface-raised);
-  border: 1px solid var(--deadlift);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  z-index: 15;
-}
-
-.rest-timer-label {
-  font-size: 12px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.rest-timer-clock {
-  font-family: var(--font-display);
-  font-size: 18px;
-  flex: 1;
-}
-
 .rest-timer-btn {
   background: transparent;
   border: 1px solid var(--border);
