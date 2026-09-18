@@ -778,6 +778,44 @@ label {
   font-family: var(--font-body);
 }
 
+.rep-pr-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.rep-pr {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.rep-pr-label {
+  color: var(--text-faint);
+  font-size: 11px;
+  margin-right: 3px;
+}
+
+/* ---------- Superset & notes ---------- */
+
+.superset-badge {
+  font-size: 11px;
+  color: var(--deadlift);
+  border: 1px solid var(--deadlift);
+  padding: 3px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.superset-badge.pending {
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+textarea {
+  resize: vertical;
+  font-family: var(--font-body);
+}
+
 /* ---------- History edit mode ---------- */
 
 .edit-set-row {

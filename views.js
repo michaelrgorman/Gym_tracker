@@ -189,7 +189,7 @@ async function loadHistory() {
   try {
     const { data, error } = await supabaseClient
       .from('Workout_Session')
-      .select('id, title, start_time, end_time, Workout_Set(id, weight_kg, reps, rpe, set_type, set_index, Workout_Exercise(id, name, is_main_lift))')
+      .select('id, title, start_time, end_time, notes, Workout_Set(id, weight_kg, reps, rpe, set_type, set_index, notes, superset_id, Workout_Exercise(id, name, is_main_lift))')
       .order('start_time', { ascending: false });
 
     if (error) throw error;
@@ -209,6 +209,7 @@ async function loadHistory() {
         title: s.title,
         start_time: s.start_time,
         end_time: s.end_time,
+        notes: s.notes,
         sets: s.Workout_Set || [],
         exerciseNames,
         totalSets: (s.Workout_Set || []).length
@@ -297,6 +298,8 @@ function renderHistoryDetail() {
       .map(s => calcE1RM(s.weight_kg, s.reps))
       .filter(Boolean)
       .reduce((max, v) => Math.max(max, v), 0);
+    const supersetGroup = sets.find(s => s.superset_id)?.superset_id;
+    const exerciseNote = sets.find(s => s.notes)?.notes;
 
     const rows = sets.map((s, i) => `
       <div class="detail-set-row">
@@ -311,9 +314,10 @@ function renderHistoryDetail() {
     return `
       <div class="detail-exercise-block">
         <div class="detail-exercise-header">
-          <span>${liftDot(category)}${escapeHtml(name)}</span>
+          <span>${liftDot(category)}${escapeHtml(name)}${supersetGroup ? ` <span class="superset-badge">Superset ${escapeHtml(supersetGroup)}</span>` : ''}</span>
           ${bestE1rm ? `<span class="exercise-e1rm">e1RM ${bestE1rm.toFixed(1)} kg</span>` : ''}
         </div>
+        ${exerciseNote ? `<div class="exercise-previous" style="padding-top:8px;">${escapeHtml(exerciseNote)}</div>` : ''}
         ${rows}
       </div>
     `;
@@ -327,6 +331,7 @@ function renderHistoryDetail() {
     <div class="detail-header">
       <div class="session-title">${escapeHtml(session.title)}</div>
       <div class="session-meta">${formatDateLong(session.start_time)} · ${formatDuration(session.start_time, session.end_time)}</div>
+      ${session.notes ? `<div class="exercise-previous" style="padding-top:8px; padding-left:0;">${escapeHtml(session.notes)}</div>` : ''}
     </div>
     ${exerciseBlocks}
   `;
@@ -405,6 +410,14 @@ function renderHistoryDetailEdit(session) {
       </div>
     </div>
 
+    <div class="field">
+      <label>Session notes</label>
+      <div style="display:flex; gap:8px; align-items:flex-start;">
+        <textarea id="edit-session-notes" rows="2">${escapeHtml(session.notes || '')}</textarea>
+        <button class="rest-timer-btn" id="edit-notes-save-btn">Save</button>
+      </div>
+    </div>
+
     <div id="history-edit-message"></div>
 
     ${exerciseBlocks}
@@ -422,6 +435,7 @@ function renderHistoryDetailEdit(session) {
     renderHistoryDetail();
   });
   document.getElementById('edit-title-save-btn').addEventListener('click', () => saveSessionTitle(session.id));
+  document.getElementById('edit-notes-save-btn').addEventListener('click', () => saveSessionNotes(session.id));
 
   root.querySelectorAll('.edit-save-btn').forEach(btn => {
     btn.addEventListener('click', () => saveSetEdit(Number(btn.dataset.setId)));
@@ -444,6 +458,23 @@ async function saveSessionTitle(sessionId) {
     const session = historyState.sessions.find(s => s.id === sessionId);
     if (session) session.title = newTitle;
     msgEl.innerHTML = `<div class="inline-message success">Title saved.</div>`;
+  } catch (err) {
+    console.error(err);
+    msgEl.innerHTML = `<div class="inline-message error">Couldn't save: ${escapeHtml(err.message || 'unknown error')}</div>`;
+  }
+}
+
+async function saveSessionNotes(sessionId) {
+  const input = document.getElementById('edit-session-notes');
+  const msgEl = document.getElementById('history-edit-message');
+  const newNotes = input.value.trim();
+
+  try {
+    const { error } = await supabaseClient.from('Workout_Session').update({ notes: newNotes || null }).eq('id', sessionId);
+    if (error) throw error;
+    const session = historyState.sessions.find(s => s.id === sessionId);
+    if (session) session.notes = newNotes;
+    msgEl.innerHTML = `<div class="inline-message success">Notes saved.</div>`;
   } catch (err) {
     console.error(err);
     msgEl.innerHTML = `<div class="inline-message error">Couldn't save: ${escapeHtml(err.message || 'unknown error')}</div>`;
@@ -564,7 +595,17 @@ function renderProgress(mainLiftData, bodyweightData) {
     `;
   }).join('');
 
+  const bwSorted = bodyweightData.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
   const bwPoints = bodyweightData.map(b => ({ x: new Date(b.date).getTime(), y: b.weight_kg }));
+
+  const bwListHtml = bwSorted.map(b => `
+    <div class="edit-set-row" style="grid-template-columns: 1fr 1fr 30px 30px;" data-bw-id="${b.id}">
+      <input type="text" class="bw-edit-date" value="${b.date}">
+      <input type="number" step="0.1" class="bw-edit-weight" value="${b.weight_kg}">
+      <button class="edit-save-btn bw-save-btn" data-bw-id="${b.id}">✓</button>
+      <button class="edit-delete-btn bw-delete-btn" data-bw-id="${b.id}">×</button>
+    </div>
+  `).join('');
 
   root.innerHTML = `
     <div class="section-label">e1RM trends</div>
@@ -586,9 +627,52 @@ function renderProgress(mainLiftData, bodyweightData) {
     <div class="lift-progress-card">
       <div class="chart-container">${renderTrendChart(bwPoints, '#ECEAE4')}</div>
     </div>
+
+    ${bwSorted.length ? `<div class="detail-exercise-block" style="margin-top: 10px;">${bwListHtml}</div>` : ''}
   `;
 
   document.getElementById('bw-add-btn').addEventListener('click', addBodyweightEntry);
+  root.querySelectorAll('.bw-save-btn').forEach(btn => {
+    btn.addEventListener('click', () => saveBodyweightEdit(Number(btn.dataset.bwId)));
+  });
+  root.querySelectorAll('.bw-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteBodyweightEntry(Number(btn.dataset.bwId)));
+  });
+}
+
+async function saveBodyweightEdit(id) {
+  const row = document.querySelector(`[data-bw-id="${id}"]`);
+  const msgEl = document.getElementById('bw-message');
+  const date = row.querySelector('.bw-edit-date').value;
+  const weight = parseFloat(row.querySelector('.bw-edit-weight').value);
+
+  if (!date || !weight) {
+    msgEl.innerHTML = `<div class="inline-message error">Enter both a date and a weight.</div>`;
+    return;
+  }
+
+  try {
+    const { error } = await supabaseClient.from('Workout_Bodyweight').update({ date, weight_kg: weight }).eq('id', id);
+    if (error) throw error;
+    onProgressTabShown();
+  } catch (err) {
+    console.error(err);
+    msgEl.innerHTML = `<div class="inline-message error">Couldn't save: ${escapeHtml(err.message || 'unknown error')}</div>`;
+  }
+}
+
+async function deleteBodyweightEntry(id) {
+  if (!confirm('Delete this bodyweight entry?')) return;
+  const msgEl = document.getElementById('bw-message');
+
+  try {
+    const { error } = await supabaseClient.from('Workout_Bodyweight').delete().eq('id', id);
+    if (error) throw error;
+    onProgressTabShown();
+  } catch (err) {
+    console.error(err);
+    msgEl.innerHTML = `<div class="inline-message error">Couldn't delete: ${escapeHtml(err.message || 'unknown error')}</div>`;
+  }
 }
 
 async function addBodyweightEntry() {
@@ -634,6 +718,12 @@ async function onBestTabShown() {
   }
 }
 
+function bestWeightAtReps(entries, reps) {
+  const matches = entries.filter(e => e.reps === reps);
+  if (matches.length === 0) return null;
+  return matches.reduce((max, e) => (e.weight_kg > max.weight_kg ? e : max), matches[0]);
+}
+
 function renderBestLifts(mainLiftData) {
   const root = document.getElementById('best-root');
 
@@ -650,11 +740,17 @@ function renderBestLifts(mainLiftData) {
 
     const best = entries.reduce((max, e) => (e.e1rm > max.e1rm ? e : max), entries[0]);
 
+    const repPrs = [1, 3, 5].map(r => {
+      const m = bestWeightAtReps(entries, r);
+      return `<span class="rep-pr"><span class="rep-pr-label">${r}RM</span> ${m ? m.weight_kg + ' kg' : '—'}</span>`;
+    }).join('');
+
     return `
       <div class="pr-card">
         <div>
           <span class="pr-label">${liftDot(category)}${LIFT_LABELS[category]}</span>
           <div class="pr-sub">${best.weight_kg} kg × ${best.reps} · ${formatDateShort(best.ts)}</div>
+          <div class="rep-pr-row">${repPrs}</div>
         </div>
         <div class="pr-value">
           <div class="pr-e1rm">${best.e1rm.toFixed(1)}</div>

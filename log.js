@@ -7,7 +7,8 @@ const logState = {
   templates: [],         // [{ id, name, exercises: [{exercise_id, name, target_sets, target_reps}] }]
   exerciseCatalog: [],   // [{ id, name, equipment, muscle_group, is_main_lift }]
   loaded: false,
-  elapsedInterval: null
+  elapsedInterval: null,
+  pendingSupersetIndex: null
 };
 
 const restTimerState = {
@@ -155,7 +156,10 @@ function renderStartScreen() {
     <div class="section-label">Templates</div>
     ${templatesHtml}
     <button class="btn-secondary finish-btn" id="start-blank-btn">Start blank workout</button>
-    <button class="new-exercise-toggle" id="create-template-btn" style="display:block; margin-top:12px;">+ Create new template</button>
+    <div style="display:flex; gap:16px; margin-top:12px;">
+      <button class="new-exercise-toggle" id="create-template-btn">+ Create new template</button>
+      <button class="new-exercise-toggle" id="manage-exercises-btn">Manage exercises</button>
+    </div>
   `;
 
   root.querySelectorAll('.start-template-btn').forEach(btn => {
@@ -167,6 +171,7 @@ function renderStartScreen() {
 
   document.getElementById('start-blank-btn').addEventListener('click', startBlankWorkout);
   document.getElementById('create-template-btn').addEventListener('click', () => openTemplateBuilder());
+  document.getElementById('manage-exercises-btn').addEventListener('click', () => openExerciseCatalogManager());
 }
 
 function startBlankWorkout() {
@@ -174,6 +179,7 @@ function startBlankWorkout() {
     title: 'Workout',
     start_time: new Date().toISOString(),
     template_id: null,
+    notes: '',
     exercises: []
   };
   renderActiveWorkout();
@@ -184,6 +190,7 @@ function startFromTemplate(template) {
     title: template.name,
     start_time: new Date().toISOString(),
     template_id: template.id,
+    notes: '',
     exercises: template.exercises.map(e => ({
       exercise_id: e.exercise_id,
       name: e.name,
@@ -191,7 +198,9 @@ function startFromTemplate(template) {
       target_sets: e.target_sets,
       target_reps: e.target_reps,
       sets: [],
-      previous: null
+      previous: null,
+      notes: '',
+      supersetGroup: null
     }))
   };
   renderActiveWorkout();
@@ -220,6 +229,11 @@ function renderActiveWorkout() {
     <div class="workout-header">
       <h2>${escapeHtml(session.title)}</h2>
       <span class="elapsed" id="workout-elapsed">${formatElapsed(session.start_time)}</span>
+    </div>
+
+    <div class="field">
+      <label>Session notes</label>
+      <textarea id="session-notes-input" rows="2" placeholder="How did it feel today?">${escapeHtml(session.notes || '')}</textarea>
     </div>
 
     ${exercisesHtml}
@@ -274,6 +288,39 @@ function renderActiveWorkout() {
   attachActiveWorkoutHandlers();
 }
 
+function nextSupersetLetter(session) {
+  const used = new Set(session.exercises.map(e => e.supersetGroup).filter(Boolean));
+  const letters = 'ABCDEFGH';
+  for (const l of letters) {
+    if (!used.has(l)) return l;
+  }
+  return 'X';
+}
+
+function toggleSuperset(exIndex) {
+  const session = logState.session;
+  const ex = session.exercises[exIndex];
+
+  if (ex.supersetGroup) {
+    ex.supersetGroup = null;
+    renderActiveWorkout();
+    return;
+  }
+
+  if (logState.pendingSupersetIndex === null || logState.pendingSupersetIndex === undefined) {
+    logState.pendingSupersetIndex = exIndex;
+  } else if (logState.pendingSupersetIndex === exIndex) {
+    logState.pendingSupersetIndex = null;
+  } else {
+    const otherEx = session.exercises[logState.pendingSupersetIndex];
+    const letter = otherEx.supersetGroup || nextSupersetLetter(session);
+    ex.supersetGroup = letter;
+    otherEx.supersetGroup = letter;
+    logState.pendingSupersetIndex = null;
+  }
+  renderActiveWorkout();
+}
+
 function renderExerciseBlock(ex, exIndex) {
   const category = getLiftCategory(ex.name);
   const bestE1rm = ex.sets
@@ -306,11 +353,21 @@ function renderExerciseBlock(ex, exIndex) {
   const prefillWeight = prevSet ? prevSet.weight_kg : '';
   const prefillReps = prevSet ? prevSet.reps : '';
 
+  const isPending = logState.pendingSupersetIndex === exIndex;
+  const supersetLabel = ex.supersetGroup
+    ? `<span class="superset-badge">Superset ${ex.supersetGroup}</span>`
+    : (isPending ? `<span class="superset-badge pending">Pick a partner…</span>` : '');
+  const supersetBtnLabel = ex.supersetGroup ? 'Unlink' : (isPending ? 'Cancel' : 'Link superset');
+
   return `
     <div class="exercise-block">
       <div class="exercise-block-header">
         <span class="exercise-name">${liftDot(category)}${escapeHtml(ex.name)}</span>
         ${bestE1rm ? `<span class="exercise-e1rm">e1RM ${bestE1rm.toFixed(1)} kg</span>` : targetLabel}
+      </div>
+      <div style="display:flex; align-items:center; justify-content:space-between; padding: 8px 14px 0;">
+        ${supersetLabel}
+        <button class="new-exercise-toggle superset-toggle-btn" data-ex="${exIndex}" style="margin-left:auto;">${supersetBtnLabel}</button>
       </div>
       ${previousLine}
       <div class="set-list">${setsHtml}</div>
@@ -329,11 +386,20 @@ function renderExerciseBlock(ex, exIndex) {
         </div>
         <button class="add-set-btn" data-ex="${exIndex}">Add set</button>
       </div>
+      <div class="field" style="padding: 0 14px 12px;">
+        <label>Exercise notes</label>
+        <input type="text" class="exercise-notes-input" data-ex="${exIndex}" value="${escapeHtml(ex.notes || '')}" placeholder="Optional">
+      </div>
     </div>
   `;
 }
 
 function attachActiveWorkoutHandlers() {
+  const notesInput = document.getElementById('session-notes-input');
+  if (notesInput) {
+    notesInput.addEventListener('input', () => { logState.session.notes = notesInput.value; });
+  }
+
   document.querySelectorAll('.add-set-btn').forEach(btn => {
     btn.addEventListener('click', () => addSet(Number(btn.dataset.ex)));
   });
@@ -344,6 +410,16 @@ function attachActiveWorkoutHandlers() {
       const setIdx = Number(btn.dataset.set);
       logState.session.exercises[exIdx].sets.splice(setIdx, 1);
       renderActiveWorkout();
+    });
+  });
+
+  document.querySelectorAll('.superset-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => toggleSuperset(Number(btn.dataset.ex)));
+  });
+
+  document.querySelectorAll('.exercise-notes-input').forEach(input => {
+    input.addEventListener('input', () => {
+      logState.session.exercises[Number(input.dataset.ex)].notes = input.value;
     });
   });
 
@@ -418,7 +494,9 @@ function addExerciseToSession(exercise) {
     target_sets: null,
     target_reps: null,
     sets: [],
-    previous: null
+    previous: null,
+    notes: '',
+    supersetGroup: null
   };
   logState.session.exercises.push(ex);
   renderActiveWorkout();
@@ -543,7 +621,8 @@ async function finishWorkout() {
         title: session.title,
         start_time: session.start_time,
         end_time: new Date().toISOString(),
-        template_id: session.template_id
+        template_id: session.template_id,
+        notes: session.notes || null
       })
       .select()
       .single();
@@ -560,7 +639,9 @@ async function finishWorkout() {
           set_type: s.set_type,
           weight_kg: s.weight_kg,
           reps: s.reps,
-          rpe: s.rpe
+          rpe: s.rpe,
+          notes: ex.notes || null,
+          superset_id: ex.supersetGroup || null
         });
       });
     });
