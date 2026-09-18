@@ -8,7 +8,9 @@ const logState = {
   exerciseCatalog: [],   // [{ id, name, equipment, muscle_group, is_main_lift }]
   loaded: false,
   elapsedInterval: null,
-  pendingSupersetIndex: null
+  pendingSupersetIndex: null,
+  activeProgram: null,
+  programLoaded: false
 };
 
 const restTimerState = {
@@ -92,6 +94,15 @@ async function onLogTabShown() {
   if (!logState.loaded) {
     await loadTemplatesAndCatalog();
   }
+  if (!logState.programLoaded) {
+    try {
+      logState.activeProgram = await loadActiveProgramState();
+    } catch (err) {
+      console.error(err);
+      logState.activeProgram = null;
+    }
+    logState.programLoaded = true;
+  }
   renderStartScreen();
 }
 
@@ -153,6 +164,7 @@ function renderStartScreen() {
     : `<div class="inline-message">No templates saved yet. Start blank and we'll add template-saving later.</div>`;
 
   root.innerHTML = `
+    ${renderActiveProgramCard()}
     <div class="section-label">Templates</div>
     ${templatesHtml}
     <button class="btn-secondary finish-btn" id="start-blank-btn">Start blank workout</button>
@@ -161,6 +173,8 @@ function renderStartScreen() {
       <button class="new-exercise-toggle" id="manage-exercises-btn">Manage exercises</button>
     </div>
   `;
+
+  attachActiveProgramHandlers();
 
   root.querySelectorAll('.start-template-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -346,14 +360,24 @@ function renderExerciseBlock(ex, exIndex) {
 
   const nextIndex = ex.sets.length;
   const prevSet = ex.previous && ex.previous.sets[nextIndex];
-  const prefillWeight = prevSet ? prevSet.weight_kg : '';
-  const prefillReps = prevSet ? prevSet.reps : '';
+  const programTarget = ex.programTargets && ex.programTargets[nextIndex];
+  const prefillWeight = programTarget ? programTarget.weight : (prevSet ? prevSet.weight_kg : '');
+  const prefillReps = programTarget ? programTarget.reps : (prevSet ? prevSet.reps : '');
+
+  const programTargetRow = ex.programTargets
+    ? `
+      <div class="previous-chip-row">
+        <span class="previous-chip-label">This week</span>
+        ${ex.programTargets.map((t, i) => `<span class="previous-chip target${i === nextIndex ? ' next' : ''}">${t.weight}×${t.reps}${t.amrap ? '+' : ''}</span>`).join('')}
+      </div>
+    `
+    : '';
 
   const previousLine = ex.previous
     ? `
       <div class="previous-chip-row">
         <span class="previous-chip-label">Last time (${formatDateShort(ex.previous.date.getTime())})</span>
-        ${ex.previous.sets.map((s, i) => `<span class="previous-chip${i === nextIndex ? ' next' : ''}">${s.weight_kg}×${s.reps}</span>`).join('')}
+        ${ex.previous.sets.map((s, i) => `<span class="previous-chip${!ex.programTargets && i === nextIndex ? ' next' : ''}">${s.weight_kg}×${s.reps}</span>`).join('')}
       </div>
     `
     : '';
@@ -374,6 +398,7 @@ function renderExerciseBlock(ex, exIndex) {
         ${supersetLabel}
         <button class="new-exercise-toggle superset-toggle-btn" data-ex="${exIndex}" style="margin-left:auto;">${supersetBtnLabel}</button>
       </div>
+      ${programTargetRow}
       ${previousLine}
       <div class="set-list">${setsHtml}</div>
       <div class="add-set-form">
@@ -627,6 +652,8 @@ async function finishWorkout() {
         start_time: session.start_time,
         end_time: new Date().toISOString(),
         template_id: session.template_id,
+        program_id: session.program_id || null,
+        program_week: session.program_week || null,
         notes: session.notes || null
       })
       .select()
@@ -669,6 +696,7 @@ async function finishWorkout() {
 
     if (typeof invalidateMainLiftCache === 'function') invalidateMainLiftCache();
     if (typeof historyState !== 'undefined') historyState.loaded = false;
+    logState.programLoaded = false;
 
     document.getElementById('log-root').innerHTML = `
       <div class="empty-state">

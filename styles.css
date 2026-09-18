@@ -408,6 +408,11 @@ label {
   font-weight: 600;
 }
 
+.previous-chip.target {
+  border-color: var(--deadlift);
+  color: var(--text);
+}
+
 .exercise-previous {
   font-size: 12px;
   color: var(--text-faint);
@@ -808,6 +813,41 @@ label {
   color: var(--text-faint);
   font-size: 15px;
   font-family: var(--font-body);
+}
+
+.goal-section {
+  border: 1px solid var(--border);
+  border-top: none;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  margin-top: -10px;
+}
+
+.goal-bar-track {
+  height: 8px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.goal-bar-fill {
+  height: 100%;
+}
+
+.goal-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.goal-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.goal-form input {
+  flex: 1;
 }
 
 .rep-pr-row {

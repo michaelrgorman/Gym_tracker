@@ -710,12 +710,20 @@ async function onBestTabShown() {
   root.innerHTML = `<div class="empty-state"><p>Loading…</p></div>`;
 
   try {
-    const mainLiftData = await fetchMainLiftData();
-    renderBestLifts(mainLiftData);
+    const [mainLiftData, goals] = await Promise.all([fetchMainLiftData(), fetchGoals()]);
+    renderBestLifts(mainLiftData, goals);
   } catch (err) {
     console.error(err);
     root.innerHTML = `<div class="empty-state"><div class="num">Couldn't load PRs</div><p>${escapeHtml(err.message || 'Unknown error')}</p></div>`;
   }
+}
+
+async function fetchGoals() {
+  const { data, error } = await supabaseClient.from('Workout_Goal').select('*');
+  if (error) throw error;
+  const byCategory = {};
+  (data || []).forEach(g => { byCategory[g.lift_category] = g; });
+  return byCategory;
 }
 
 function bestWeightAtReps(entries, reps) {
@@ -724,17 +732,20 @@ function bestWeightAtReps(entries, reps) {
   return matches.reduce((max, e) => (e.weight_kg > max.weight_kg ? e : max), matches[0]);
 }
 
-function renderBestLifts(mainLiftData) {
+function renderBestLifts(mainLiftData, goals) {
   const root = document.getElementById('best-root');
 
   root.innerHTML = LIFT_ORDER.map(category => {
     const entries = mainLiftData[category];
+    const goal = goals && goals[category];
+
     if (!entries || entries.length === 0) {
       return `
         <div class="pr-card empty">
           <span class="pr-label">${liftDot(category)}${LIFT_LABELS[category]}</span>
           <span class="pr-value"><span class="pr-e1rm">No data yet</span></span>
         </div>
+        ${renderGoalSection(category, null, goal)}
       `;
     }
 
@@ -757,8 +768,86 @@ function renderBestLifts(mainLiftData) {
           <div class="pr-unit">kg e1RM</div>
         </div>
       </div>
+      ${renderGoalSection(category, best.e1rm, goal)}
     `;
   }).join('');
+
+  root.querySelectorAll('.goal-set-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const el = document.getElementById(`goal-form-${btn.dataset.category}`);
+      el.hidden = !el.hidden;
+    });
+  });
+  root.querySelectorAll('.goal-save-btn').forEach(btn => {
+    btn.addEventListener('click', () => saveGoal(btn.dataset.category));
+  });
+  root.querySelectorAll('.goal-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteGoal(btn.dataset.category));
+  });
+}
+
+function renderGoalSection(category, currentE1rm, goal) {
+  if (!goal) {
+    return `
+      <div class="goal-section">
+        <button class="new-exercise-toggle goal-set-toggle" data-category="${category}">+ Set a goal</button>
+        <div class="goal-form" id="goal-form-${category}" hidden>
+          <input type="number" step="0.5" class="goal-weight-input" data-category="${category}" placeholder="Target kg">
+          <button class="rest-timer-btn goal-save-btn" data-category="${category}">Save</button>
+        </div>
+      </div>
+    `;
+  }
+
+  const pct = currentE1rm ? Math.min(100, (currentE1rm / goal.target_weight_kg) * 100) : 0;
+  const remaining = currentE1rm ? Math.max(0, goal.target_weight_kg - currentE1rm) : goal.target_weight_kg;
+
+  return `
+    <div class="goal-section">
+      <div class="goal-bar-track"><div class="goal-bar-fill" style="width:${pct.toFixed(1)}%; background:${LIFT_COLOR_VARS[category]};"></div></div>
+      <div class="goal-text">
+        Goal: ${goal.target_weight_kg} kg e1RM
+        ${currentE1rm ? `· ${remaining > 0 ? remaining.toFixed(1) + ' kg to go' : 'Goal reached 🎉'}` : ''}
+      </div>
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <button class="new-exercise-toggle goal-set-toggle" data-category="${category}">Edit</button>
+        <button class="new-exercise-toggle goal-delete-btn" data-category="${category}">Remove</button>
+      </div>
+      <div class="goal-form" id="goal-form-${category}" hidden>
+        <input type="number" step="0.5" class="goal-weight-input" data-category="${category}" value="${goal.target_weight_kg}">
+        <button class="rest-timer-btn goal-save-btn" data-category="${category}">Save</button>
+      </div>
+    </div>
+  `;
+}
+
+async function saveGoal(category) {
+  const input = document.querySelector(`.goal-weight-input[data-category="${category}"]`);
+  const weight = parseFloat(input.value);
+  if (!weight) return;
+
+  try {
+    const { error } = await supabaseClient
+      .from('Workout_Goal')
+      .upsert({ lift_category: category, target_weight_kg: weight, updated_at: new Date().toISOString() }, { onConflict: 'lift_category' });
+    if (error) throw error;
+    onBestTabShown();
+  } catch (err) {
+    console.error(err);
+    alert("Couldn't save goal: " + (err.message || 'unknown error'));
+  }
+}
+
+async function deleteGoal(category) {
+  if (!confirm('Remove this goal?')) return;
+  try {
+    const { error } = await supabaseClient.from('Workout_Goal').delete().eq('lift_category', category);
+    if (error) throw error;
+    onBestTabShown();
+  } catch (err) {
+    console.error(err);
+    alert("Couldn't remove goal: " + (err.message || 'unknown error'));
+  }
 }
 
 // Home is the default active tab on page load — populate it immediately
