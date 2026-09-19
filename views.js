@@ -173,7 +173,7 @@ async function navigateToSessionDetail(sessionId) {
 // HISTORY TAB
 // ============================================================
 
-const historyState = { sessions: [], loaded: false, detailId: null, editMode: false };
+const historyState = { sessions: [], loaded: false, detailId: null, editMode: false, searchQuery: '', exerciseFilter: '' };
 
 async function onHistoryTabShown() {
   if (!historyState.loaded) {
@@ -242,13 +242,51 @@ function renderHistory() {
     return;
   }
 
-  root.innerHTML = historyState.sessions.map(s => `
-    <div class="session-card" data-session-id="${s.id}">
-      <div class="session-title">${escapeHtml(s.title)}</div>
-      <div class="session-meta">${formatDateLong(s.start_time)} · ${formatDuration(s.start_time, s.end_time)} · ${s.totalSets} sets</div>
-      <div class="session-exercises">${s.exerciseNames.map(escapeHtml).join(', ')}</div>
+  const allExercises = [...new Set(historyState.sessions.flatMap(s => s.exerciseNames))].sort((a, b) => a.localeCompare(b));
+
+  const q = historyState.searchQuery.toLowerCase().trim();
+  const filtered = historyState.sessions.filter(s => {
+    const matchesQuery = !q || s.title.toLowerCase().includes(q) || s.exerciseNames.some(n => n.toLowerCase().includes(q));
+    const matchesExercise = !historyState.exerciseFilter || s.exerciseNames.includes(historyState.exerciseFilter);
+    return matchesQuery && matchesExercise;
+  });
+
+  const listHtml = filtered.length
+    ? filtered.map(s => `
+        <div class="session-card" data-session-id="${s.id}">
+          <div class="session-title">${escapeHtml(s.title)}</div>
+          <div class="session-meta">${formatDateLong(s.start_time)} · ${formatDuration(s.start_time, s.end_time)} · ${s.totalSets} sets</div>
+          <div class="session-exercises">${s.exerciseNames.map(escapeHtml).join(', ')}</div>
+        </div>
+      `).join('')
+    : `<div class="inline-message">No sessions match.</div>`;
+
+  root.innerHTML = `
+    <div class="field-row" style="margin-bottom: 12px;">
+      <div class="field">
+        <input type="text" id="history-search-input" placeholder="Search title or exercise…" value="${escapeHtml(historyState.searchQuery)}">
+      </div>
+      <div class="field" style="flex: none; width: 130px;">
+        <select id="history-exercise-filter">
+          <option value="">All exercises</option>
+          ${allExercises.map(name => `<option value="${escapeHtml(name)}" ${historyState.exerciseFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
+        </select>
+      </div>
     </div>
-  `).join('');
+    ${listHtml}
+  `;
+
+  document.getElementById('history-search-input').addEventListener('input', (e) => {
+    historyState.searchQuery = e.target.value;
+    renderHistory();
+    const input = document.getElementById('history-search-input');
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  });
+  document.getElementById('history-exercise-filter').addEventListener('change', (e) => {
+    historyState.exerciseFilter = e.target.value;
+    renderHistory();
+  });
 
   root.querySelectorAll('.session-card').forEach(card => {
     card.addEventListener('click', () => {
@@ -558,15 +596,106 @@ async function onProgressTabShown() {
   root.innerHTML = `<div class="empty-state"><p>Loading…</p></div>`;
 
   try {
-    const [mainLiftData, bodyweightData] = await Promise.all([
+    const [mainLiftData, bodyweightData, volumeSets, sessionTimestamps] = await Promise.all([
       fetchMainLiftData(),
-      fetchBodyweightData()
+      fetchBodyweightData(),
+      fetchVolumeData(),
+      fetchSessionTimestamps()
     ]);
-    renderProgress(mainLiftData, bodyweightData);
+    renderProgress(mainLiftData, bodyweightData, volumeSets, sessionTimestamps);
   } catch (err) {
     console.error(err);
     root.innerHTML = `<div class="empty-state"><div class="num">Couldn't load progress</div><p>${escapeHtml(err.message || 'Unknown error')}</p></div>`;
   }
+}
+
+async function fetchVolumeData() {
+  const { data, error } = await supabaseClient
+    .from('Workout_Set')
+    .select('weight_kg, reps, set_type, Workout_Session!inner(start_time)')
+    .neq('set_type', 'warmup');
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchSessionTimestamps() {
+  const { data, error } = await supabaseClient
+    .from('Workout_Session')
+    .select('start_time')
+    .order('start_time', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(s => new Date(s.start_time).getTime());
+}
+
+function getWeekStartTs(ts) {
+  const d = new Date(ts);
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1) - day;
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + diff);
+  return d.getTime();
+}
+
+function bucketByWeek(items, numWeeks, getTs, getValue) {
+  const byWeek = {};
+  items.forEach(item => {
+    const weekStart = getWeekStartTs(getTs(item));
+    byWeek[weekStart] = (byWeek[weekStart] || 0) + getValue(item);
+  });
+  const weekKeys = Object.keys(byWeek).map(Number).sort((a, b) => a - b);
+  return weekKeys.slice(-numWeeks).map(ts => ({ x: ts, y: byWeek[ts] }));
+}
+
+function buildTotalSeries(mainLiftData) {
+  const cats = ['squat', 'bench', 'deadlift'];
+  const seriesPerCat = {};
+  cats.forEach(c => { seriesPerCat[c] = bestPerDate(mainLiftData[c]); });
+
+  const allDates = [...new Set(cats.flatMap(c => seriesPerCat[c].map(e => e.ts)))].sort((a, b) => a - b);
+
+  const idx = { squat: 0, bench: 0, deadlift: 0 };
+  const current = { squat: 0, bench: 0, deadlift: 0 };
+  const points = [];
+
+  allDates.forEach(ts => {
+    cats.forEach(c => {
+      while (idx[c] < seriesPerCat[c].length && seriesPerCat[c][idx[c]].ts <= ts) {
+        current[c] = seriesPerCat[c][idx[c]].e1rm;
+        idx[c]++;
+      }
+    });
+    if (current.squat && current.bench && current.deadlift) {
+      points.push({ x: ts, y: current.squat + current.bench + current.deadlift });
+    }
+  });
+
+  return points;
+}
+
+function renderBarChart(points, color, formatValue) {
+  if (points.length === 0) {
+    return `<div class="chart-empty">No data yet</div>`;
+  }
+
+  const width = 320, height = 90, padding = 10;
+  const maxY = Math.max(...points.map(p => p.y), 1);
+  const gap = (width - padding * 2) / points.length;
+  const barWidth = gap * 0.6;
+
+  const bars = points.map((p, i) => {
+    const barHeight = Math.max(2, (p.y / maxY) * (height - padding * 2));
+    const x = padding + i * gap + (gap - barWidth) / 2;
+    const y = height - padding - barHeight;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" fill="${color}" />`;
+  }).join('');
+
+  const lastVal = points[points.length - 1].y;
+  const label = formatValue ? formatValue(lastVal) : lastVal;
+
+  return `
+    <svg viewBox="0 0 ${width} ${height}" class="trend-chart" preserveAspectRatio="none">${bars}</svg>
+    <div class="chart-single-date" style="text-align:right;">This week: ${label}</div>
+  `;
 }
 
 async function fetchBodyweightData() {
@@ -578,7 +707,7 @@ async function fetchBodyweightData() {
   return data || [];
 }
 
-function renderProgress(mainLiftData, bodyweightData) {
+function renderProgress(mainLiftData, bodyweightData, volumeSets, sessionTimestamps) {
   const root = document.getElementById('progress-root');
 
   const liftCards = LIFT_ORDER.map(category => {
@@ -595,6 +724,60 @@ function renderProgress(mainLiftData, bodyweightData) {
     `;
   }).join('');
 
+  // ---- Insights: Total, weekly volume, consistency ----
+  const totalPoints = buildTotalSeries(mainLiftData);
+  const totalNow = totalPoints.length ? totalPoints[totalPoints.length - 1].y : null;
+
+  const volumePoints = bucketByWeek(
+    volumeSets, 8,
+    v => new Date(v.Workout_Session.start_time).getTime(),
+    v => (v.weight_kg || 0) * (v.reps || 0)
+  );
+
+  const frequencyPoints = bucketByWeek(
+    sessionTimestamps, 8,
+    ts => ts,
+    () => 1
+  );
+
+  const totalSessions = sessionTimestamps.length;
+  const lastSessionTs = sessionTimestamps.length ? sessionTimestamps[sessionTimestamps.length - 1] : null;
+  const daysSinceLast = lastSessionTs !== null ? Math.floor((Date.now() - lastSessionTs) / 86400000) : null;
+  const eightWeeksAgo = Date.now() - 8 * 7 * 86400000;
+  const recentSessionCount = sessionTimestamps.filter(ts => ts >= eightWeeksAgo).length;
+  const avgPerWeek = (recentSessionCount / 8);
+
+  const insightsHtml = `
+    <div class="section-label" style="margin-top: 20px;">Insights</div>
+
+    <div class="lift-progress-card">
+      <div class="lift-progress-header">
+        <span class="lift-name">Total (S+B+D)</span>
+        ${totalNow ? `<span class="lift-progress-header lift-current">${totalNow.toFixed(1)} kg</span>` : ''}
+      </div>
+      <div class="chart-container">
+        ${totalPoints.length ? renderTrendChart(totalPoints, '#ECEAE4') : '<div class="chart-empty">Need e1RM data for Squat, Bench, and Deadlift</div>'}
+      </div>
+    </div>
+
+    <div class="lift-progress-card">
+      <div class="lift-progress-header"><span class="lift-name">Weekly volume</span></div>
+      <div class="chart-container">${renderBarChart(volumePoints, '#2E5EAA', v => Math.round(v).toLocaleString() + ' kg')}</div>
+    </div>
+
+    <div class="lift-progress-card">
+      <div class="lift-progress-header"><span class="lift-name">Consistency</span></div>
+      <div class="chart-container">
+        <div style="display:flex; justify-content:space-between; margin-bottom:12px; text-align:center;">
+          <div><div class="num" style="font-size:20px;">${daysSinceLast === null ? '—' : daysSinceLast === 0 ? 'Today' : daysSinceLast}</div><div class="rep-pr-label">days since last</div></div>
+          <div><div class="num" style="font-size:20px;">${totalSessions}</div><div class="rep-pr-label">total sessions</div></div>
+          <div><div class="num" style="font-size:20px;">${avgPerWeek.toFixed(1)}</div><div class="rep-pr-label">avg/week (8wk)</div></div>
+        </div>
+        ${renderBarChart(frequencyPoints, '#3C8A54', v => v + (v === 1 ? ' session' : ' sessions'))}
+      </div>
+    </div>
+  `;
+
   const bwSorted = bodyweightData.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
   const bwPoints = bodyweightData.map(b => ({ x: new Date(b.date).getTime(), y: b.weight_kg }));
 
@@ -610,6 +793,8 @@ function renderProgress(mainLiftData, bodyweightData) {
   root.innerHTML = `
     <div class="section-label">e1RM trends</div>
     ${liftCards}
+
+    ${insightsHtml}
 
     <div class="section-label" style="margin-top: 20px;">Bodyweight</div>
     <div class="bodyweight-form">

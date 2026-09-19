@@ -860,6 +860,40 @@ textarea {
   font-family: var(--font-body);
 }
 
+/* ---------- Floating add-exercise button ---------- */
+
+.fab-add-exercise {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--nav-height) + var(--safe-bottom) + 16px);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--deadlift);
+  color: var(--bg);
+  border: none;
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 21;
+}
+
+.fab-add-exercise:active {
+  background: var(--text);
+}
+
+@keyframes flash-highlight {
+  0%, 100% { border-color: var(--border); }
+  20%, 60% { border-color: var(--deadlift); }
+}
+
+.flash-highlight {
+  animation: flash-highlight 1.2s ease-in-out;
+}
+
 /* ---------- History edit mode ---------- */
 
 .edit-set-row {

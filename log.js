@@ -207,9 +207,10 @@ function renderStartScreen() {
     <div class="section-label">Templates</div>
     ${templatesHtml}
     <button class="btn-secondary finish-btn" id="start-blank-btn">Start blank workout</button>
-    <div style="display:flex; gap:16px; margin-top:12px;">
+    <div style="display:flex; gap:16px; margin-top:12px; flex-wrap: wrap;">
       <button class="new-exercise-toggle" id="create-template-btn">+ Create new template</button>
       <button class="new-exercise-toggle" id="manage-exercises-btn">Manage exercises</button>
+      <button class="new-exercise-toggle" id="start-meet-btn">+ Start mock meet</button>
     </div>
   `;
 
@@ -225,6 +226,7 @@ function renderStartScreen() {
   document.getElementById('start-blank-btn').addEventListener('click', startBlankWorkout);
   document.getElementById('create-template-btn').addEventListener('click', () => openTemplateBuilder());
   document.getElementById('manage-exercises-btn').addEventListener('click', () => openExerciseCatalogManager());
+  document.getElementById('start-meet-btn').addEventListener('click', () => openMeetSetup());
 }
 
 function startBlankWorkout() {
@@ -293,6 +295,8 @@ function renderActiveWorkout() {
     </div>
 
     ${exercisesHtml}
+
+    <button class="fab-add-exercise" id="fab-add-exercise-btn" title="Add exercise">+</button>
 
     <div class="add-exercise-section" id="add-exercise-section">
       <div class="section-label">Add exercise</div>
@@ -467,6 +471,17 @@ function renderExerciseBlock(ex, exIndex) {
 }
 
 function attachActiveWorkoutHandlers() {
+  const fabBtn = document.getElementById('fab-add-exercise-btn');
+  if (fabBtn) {
+    fabBtn.addEventListener('click', () => {
+      const section = document.getElementById('add-exercise-section');
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      section.classList.add('flash-highlight');
+      setTimeout(() => section.classList.remove('flash-highlight'), 1200);
+      document.getElementById('exercise-search-input').focus();
+    });
+  }
+
   const discardBtn = document.getElementById('discard-workout-btn');
   if (discardBtn) discardBtn.addEventListener('click', discardWorkout);
 
