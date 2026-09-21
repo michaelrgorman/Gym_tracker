@@ -363,7 +363,7 @@ function renderHistoryDetail() {
 
   root.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center;">
-      <button class="back-btn" id="history-back-btn" style="padding-bottom:0;">‹ All sessions</button>
+      <button class="back-btn" id="history-back-btn" style="margin-bottom:0;">‹ All sessions</button>
       <button class="new-exercise-toggle" id="history-edit-btn">Edit</button>
     </div>
     <div class="detail-header">
@@ -436,7 +436,7 @@ function renderHistoryDetailEdit(session) {
 
   root.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center;">
-      <button class="back-btn" id="history-back-btn" style="padding-bottom:0;">‹ All sessions</button>
+      <button class="back-btn" id="history-back-btn" style="margin-bottom:0;">‹ All sessions</button>
       <button class="new-exercise-toggle" id="history-done-btn">Done</button>
     </div>
 

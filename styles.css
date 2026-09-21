@@ -515,12 +515,19 @@ label {
 }
 
 .new-exercise-toggle {
-  background: none;
-  border: none;
-  color: var(--text-muted);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
   font-size: 13px;
-  padding: 8px 0 0;
-  text-decoration: underline;
+  font-weight: 500;
+  padding: 9px 16px;
+  border-radius: 999px;
+  text-decoration: none;
+}
+
+.new-exercise-toggle:active {
+  border-color: var(--deadlift);
+  color: var(--deadlift);
 }
 
 .new-exercise-form {
@@ -604,14 +611,17 @@ label {
 }
 
 .back-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
   font-size: 13px;
-  padding: 0 0 16px;
-  display: flex;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 999px;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
+  margin-bottom: 16px;
 }
 
 .detail-header {
