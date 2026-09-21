@@ -173,7 +173,7 @@ async function navigateToSessionDetail(sessionId) {
 // HISTORY TAB
 // ============================================================
 
-const historyState = { sessions: [], loaded: false, detailId: null, editMode: false, searchQuery: '', exerciseFilter: '' };
+const historyState = { sessions: [], loaded: false, detailId: null, editMode: false, searchQuery: '', exerciseFilter: '', addingExerciseToSession: false };
 
 async function onHistoryTabShown() {
   if (!historyState.loaded) {
@@ -390,6 +390,7 @@ function renderHistoryDetailEdit(session) {
   const order = [];
   const seen = new Set();
   const byExercise = {};
+  const exerciseIdByName = {};
   session.sets
     .slice()
     .sort((a, b) => a.id - b.id)
@@ -399,6 +400,7 @@ function renderHistoryDetailEdit(session) {
       if (!seen.has(name)) {
         seen.add(name);
         order.push(name);
+        exerciseIdByName[name] = ex ? ex.id : null;
       }
       byExercise[name] = byExercise[name] || [];
       byExercise[name].push(set);
@@ -407,6 +409,8 @@ function renderHistoryDetailEdit(session) {
   const exerciseBlocks = order.map(name => {
     const sets = byExercise[name].sort((a, b) => a.set_index - b.set_index);
     const category = getLiftCategory(name);
+    const exerciseId = exerciseIdByName[name];
+    const nextSetIndex = sets.length ? Math.max(...sets.map(s => s.set_index)) + 1 : 1;
 
     const rows = sets.map((s) => `
       <div class="edit-set-row" data-set-id="${s.id}">
@@ -430,9 +434,32 @@ function renderHistoryDetailEdit(session) {
           <span>${liftDot(category)}${escapeHtml(name)}</span>
         </div>
         ${rows}
+        <div class="add-set-form" data-exercise-id="${exerciseId}" data-session-id="${session.id}" data-next-index="${nextSetIndex}">
+          <div class="field"><label>Weight</label><input type="number" step="0.5" class="hist-new-weight"></div>
+          <div class="field"><label>Reps</label><input type="number" step="1" class="hist-new-reps"></div>
+          <div class="field"><label>RPE</label><input type="number" step="0.5" class="hist-new-rpe"></div>
+          <div class="field">
+            <label>Type</label>
+            <select class="hist-new-type">
+              <option value="normal">Normal</option>
+              <option value="warmup">Warmup</option>
+              <option value="failure">Failure</option>
+              <option value="drop">Drop</option>
+            </select>
+          </div>
+          <button class="add-set-btn hist-add-set-btn">+ Add set</button>
+        </div>
       </div>
     `;
   }).join('');
+
+  const addExerciseSection = historyState.addingExerciseToSession ? `
+    <div class="add-exercise-section" style="margin-top:12px;">
+      <div class="section-label">Add exercise</div>
+      <input type="text" id="hist-exercise-search-input" placeholder="Search exercises…">
+      <div class="exercise-search-results" id="hist-exercise-search-results"></div>
+    </div>
+  ` : `<button class="new-exercise-toggle" id="hist-add-exercise-toggle" style="margin-top:12px;">+ Add exercise</button>`;
 
   root.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -460,16 +487,20 @@ function renderHistoryDetailEdit(session) {
 
     ${exerciseBlocks}
 
-    <button class="btn-secondary finish-btn" id="delete-session-btn" style="border-color: var(--danger); color: var(--danger);">Delete this workout</button>
+    ${addExerciseSection}
+
+    <button class="btn-secondary finish-btn" id="delete-session-btn" style="border-color: var(--danger); color: var(--danger); margin-top:16px;">Delete this workout</button>
   `;
 
   document.getElementById('history-back-btn').addEventListener('click', () => {
     historyState.detailId = null;
     historyState.editMode = false;
+    historyState.addingExerciseToSession = false;
     renderHistory();
   });
   document.getElementById('history-done-btn').addEventListener('click', () => {
     historyState.editMode = false;
+    historyState.addingExerciseToSession = false;
     renderHistoryDetail();
   });
   document.getElementById('edit-title-save-btn').addEventListener('click', () => saveSessionTitle(session.id));
@@ -482,6 +513,136 @@ function renderHistoryDetailEdit(session) {
     btn.addEventListener('click', () => deleteSet(Number(btn.dataset.setId)));
   });
   document.getElementById('delete-session-btn').addEventListener('click', () => deleteSession(session.id));
+
+  root.querySelectorAll('.hist-add-set-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = btn.closest('.add-set-form');
+      addSetToHistorySession(
+        Number(form.dataset.sessionId),
+        Number(form.dataset.exerciseId),
+        Number(form.dataset.nextIndex),
+        form
+      );
+    });
+  });
+
+  const addExerciseToggle = document.getElementById('hist-add-exercise-toggle');
+  if (addExerciseToggle) {
+    addExerciseToggle.addEventListener('click', async () => {
+      if (!logState.exerciseCatalog.length) {
+        await loadTemplatesAndCatalog();
+      }
+      historyState.addingExerciseToSession = true;
+      renderHistoryDetailEdit(session);
+    });
+  }
+
+  const histSearchInput = document.getElementById('hist-exercise-search-input');
+  if (histSearchInput) {
+    histSearchInput.addEventListener('input', () => renderHistExerciseSearchResults(session, histSearchInput.value));
+    renderHistExerciseSearchResults(session, '');
+  }
+}
+
+function renderHistExerciseSearchResults(session, query) {
+  const resultsEl = document.getElementById('hist-exercise-search-results');
+  if (!resultsEl) return;
+  const q = (query || '').toLowerCase().trim();
+  const filtered = logState.exerciseCatalog.filter(e => !q || e.name.toLowerCase().includes(q));
+
+  if (filtered.length === 0) {
+    resultsEl.innerHTML = `<div class="inline-message">No exercises match "${escapeHtml(query)}".</div>`;
+    return;
+  }
+
+  const groups = groupExercises(filtered);
+  const sortedGroupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+
+  resultsEl.innerHTML = sortedGroupNames.map(groupName => {
+    const items = groups[groupName]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(e => {
+        const category = getLiftCategory(e.name);
+        return `<div class="exercise-search-item" data-exercise-id="${e.id}">${liftDot(category)}${escapeHtml(e.name)}</div>`;
+      }).join('');
+    return `<div class="exercise-group"><div class="exercise-group-label">${escapeHtml(groupName)}</div>${items}</div>`;
+  }).join('');
+
+  resultsEl.querySelectorAll('.exercise-search-item').forEach(item => {
+    item.addEventListener('click', async () => {
+      const exercise = logState.exerciseCatalog.find(e => e.id === Number(item.dataset.exerciseId));
+      await addExerciseWithFirstSetToHistorySession(session, exercise);
+    });
+  });
+}
+
+async function addSetToHistorySession(sessionId, exerciseId, setIndex, formEl) {
+  const weight = parseFloat(formEl.querySelector('.hist-new-weight').value);
+  const reps = parseInt(formEl.querySelector('.hist-new-reps').value, 10);
+  const rpeVal = formEl.querySelector('.hist-new-rpe').value;
+  const setType = formEl.querySelector('.hist-new-type').value;
+  const msgEl = document.getElementById('history-edit-message');
+
+  if (!weight || !reps) {
+    msgEl.innerHTML = `<div class="inline-message error">Enter both weight and reps.</div>`;
+    return;
+  }
+
+  try {
+    const { error } = await supabaseClient.from('Workout_Set').insert({
+      session_id: sessionId,
+      exercise_id: exerciseId,
+      set_index: setIndex,
+      set_type: setType,
+      weight_kg: weight,
+      reps: reps,
+      rpe: rpeVal ? parseFloat(rpeVal) : null
+    });
+    if (error) throw error;
+
+    invalidateMainLiftCache();
+    await loadHistory();
+    historyState.editMode = true;
+    renderHistoryDetail();
+  } catch (err) {
+    console.error(err);
+    msgEl.innerHTML = `<div class="inline-message error">Couldn't add set: ${escapeHtml(err.message || 'unknown error')}</div>`;
+  }
+}
+
+async function addExerciseWithFirstSetToHistorySession(session, exercise) {
+  const weight = prompt(`Weight (kg) for ${exercise.name}?`);
+  if (weight === null) return;
+  const reps = prompt(`Reps for ${exercise.name}?`);
+  if (reps === null) return;
+
+  const w = parseFloat(weight);
+  const r = parseInt(reps, 10);
+  if (!w || !r) {
+    alert('Enter both a weight and reps to add this exercise.');
+    return;
+  }
+
+  try {
+    const { error } = await supabaseClient.from('Workout_Set').insert({
+      session_id: session.id,
+      exercise_id: exercise.id,
+      set_index: 1,
+      set_type: 'normal',
+      weight_kg: w,
+      reps: r
+    });
+    if (error) throw error;
+
+    invalidateMainLiftCache();
+    historyState.addingExerciseToSession = false;
+    await loadHistory();
+    historyState.editMode = true;
+    renderHistoryDetail();
+  } catch (err) {
+    console.error(err);
+    alert("Couldn't add exercise: " + (err.message || 'unknown error'));
+  }
 }
 
 async function saveSessionTitle(sessionId) {
