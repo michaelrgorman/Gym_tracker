@@ -714,6 +714,46 @@ label {
   text-align: center;
 }
 
+.chart-stats {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-pr-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--deadlift);
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.chart-yaxis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-faint);
+  text-align: right;
+  padding: 2px 0;
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.chart-xaxis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 4px;
+  padding-left: 36px;
+}
+
 .chart-single {
   padding: 12px 0;
   font-family: var(--font-display);

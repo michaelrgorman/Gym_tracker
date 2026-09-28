@@ -70,36 +70,68 @@ function bestPerDate(entries) {
 
 // ---------- Simple SVG line chart ----------
 
-function renderTrendChart(points, color) {
+function renderTrendChart(points, color, options) {
+  const opts = Object.assign({ unit: 'kg', goalValue: null, showStats: true, hidePrBadge: false }, options || {});
+
   if (points.length === 0) {
     return `<div class="chart-empty">No data yet</div>`;
   }
   if (points.length === 1) {
-    return `<div class="chart-single">${points[0].y.toFixed(1)} kg<span class="chart-single-date">${formatDateShort(points[0].x)}</span></div>`;
+    return `<div class="chart-single">${points[0].y.toFixed(1)} ${opts.unit}<span class="chart-single-date">${formatDateShort(points[0].x)}</span></div>`;
   }
 
-  const width = 320, height = 80, padding = 10;
+  const width = 320, height = 80, padding = 8;
   const xs = points.map(p => p.x);
-  const ys = points.map(p => p.y);
+  let ys = points.map(p => p.y);
+  if (opts.goalValue) ys = ys.concat([opts.goalValue]);
+
   const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  let minY = Math.min(...ys), maxY = Math.max(...ys);
+  if (minY === maxY) { minY -= 1; maxY += 1; }
   const spanX = (maxX - minX) || 1;
   const spanY = (maxY - minY) || 1;
 
-  const coords = points.map(p => {
-    const px = padding + ((p.x - minX) / spanX) * (width - padding * 2);
-    const py = height - padding - ((p.y - minY) / spanY) * (height - padding * 2);
-    return [px, py];
-  });
+  const toX = x => padding + ((x - minX) / spanX) * (width - padding * 2);
+  const toY = y => height - padding - ((y - minY) / spanY) * (height - padding * 2);
 
+  const coords = points.map(p => [toX(p.x), toY(p.y)]);
   const polyline = coords.map(c => `${c[0].toFixed(1)},${c[1].toFixed(1)}`).join(' ');
-  const [lastX, lastY] = coords[coords.length - 1];
+
+  const maxVal = Math.max(...points.map(p => p.y));
+  const dots = coords.map((c, i) => {
+    const isLast = i === coords.length - 1;
+    const r = isLast ? 4.5 : 2.5;
+    return `<circle cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="${r}" fill="${color}" ${isLast ? '' : 'opacity="0.55"'} />`;
+  }).join('');
+
+  const goalLine = opts.goalValue ? `
+    <line x1="${padding}" y1="${toY(opts.goalValue).toFixed(1)}" x2="${width - padding}" y2="${toY(opts.goalValue).toFixed(1)}" stroke="var(--deadlift)" stroke-width="1.5" stroke-dasharray="4,3" vector-effect="non-scaling-stroke"/>
+  ` : '';
+
+  const first = points[0];
+  const last = points[points.length - 1];
+  const delta = last.y - first.y;
+  const pct = first.y ? (delta / first.y) * 100 : null;
+  const isNewPr = !opts.hidePrBadge && last.y >= maxVal;
+
+  const statsLine = opts.showStats ? `
+    <div class="chart-stats">
+      ${delta >= 0 ? '▲' : '▼'} ${delta >= 0 ? '+' : ''}${delta.toFixed(1)} ${opts.unit}${pct !== null ? ` (${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%)` : ''} since ${formatDateShort(first.x)}
+      ${isNewPr ? '<span class="chart-pr-badge">New PR</span>' : ''}
+    </div>
+  ` : '';
 
   return `
-    <svg viewBox="0 0 ${width} ${height}" class="trend-chart" preserveAspectRatio="none">
-      <polyline points="${polyline}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
-      <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3.5" fill="${color}"/>
-    </svg>
+    ${statsLine}
+    <div style="display:flex; gap:8px;">
+      <div class="chart-yaxis"><span>${maxY.toFixed(0)}</span><span>${minY.toFixed(0)}</span></div>
+      <svg viewBox="0 0 ${width} ${height}" class="trend-chart" preserveAspectRatio="none" style="flex:1;">
+        ${goalLine}
+        <polyline points="${polyline}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+        ${dots}
+      </svg>
+    </div>
+    <div class="chart-xaxis"><span>${formatDateShort(first.x)}</span>${opts.goalValue ? `<span style="color:var(--deadlift);">Goal: ${opts.goalValue}${opts.unit}</span>` : ''}<span>${formatDateShort(last.x)}</span></div>
   `;
 }
 
@@ -757,13 +789,14 @@ async function onProgressTabShown() {
   root.innerHTML = `<div class="empty-state"><p>Loading…</p></div>`;
 
   try {
-    const [mainLiftData, bodyweightData, volumeSets, sessionTimestamps] = await Promise.all([
+    const [mainLiftData, bodyweightData, volumeSets, sessionTimestamps, goals] = await Promise.all([
       fetchMainLiftData(),
       fetchBodyweightData(),
       fetchVolumeData(),
-      fetchSessionTimestamps()
+      fetchSessionTimestamps(),
+      fetchGoals()
     ]);
-    renderProgress(mainLiftData, bodyweightData, volumeSets, sessionTimestamps);
+    renderProgress(mainLiftData, bodyweightData, volumeSets, sessionTimestamps, goals);
   } catch (err) {
     console.error(err);
     root.innerHTML = `<div class="empty-state"><div class="num">Couldn't load progress</div><p>${escapeHtml(err.message || 'Unknown error')}</p></div>`;
@@ -838,7 +871,7 @@ function renderBarChart(points, color, formatValue) {
     return `<div class="chart-empty">No data yet</div>`;
   }
 
-  const width = 320, height = 90, padding = 10;
+  const width = 320, height = 80, padding = 6;
   const maxY = Math.max(...points.map(p => p.y), 1);
   const gap = (width - padding * 2) / points.length;
   const barWidth = gap * 0.6;
@@ -847,15 +880,21 @@ function renderBarChart(points, color, formatValue) {
     const barHeight = Math.max(2, (p.y / maxY) * (height - padding * 2));
     const x = padding + i * gap + (gap - barWidth) / 2;
     const y = height - padding - barHeight;
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" fill="${color}" />`;
+    const isLast = i === points.length - 1;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" fill="${color}" ${isLast ? '' : 'opacity="0.6"'} />`;
   }).join('');
 
   const lastVal = points[points.length - 1].y;
   const label = formatValue ? formatValue(lastVal) : lastVal;
+  const maxLabel = formatValue ? formatValue(maxY) : maxY;
 
   return `
-    <svg viewBox="0 0 ${width} ${height}" class="trend-chart" preserveAspectRatio="none">${bars}</svg>
-    <div class="chart-single-date" style="text-align:right;">This week: ${label}</div>
+    <div class="chart-stats">This week: ${label}</div>
+    <div style="display:flex; gap:8px;">
+      <div class="chart-yaxis"><span>${maxLabel}</span><span>0</span></div>
+      <svg viewBox="0 0 ${width} ${height}" class="trend-chart" preserveAspectRatio="none" style="flex:1;">${bars}</svg>
+    </div>
+    <div class="chart-xaxis"><span>${formatDateShort(points[0].x)}</span><span>${formatDateShort(points[points.length - 1].x)}</span></div>
   `;
 }
 
@@ -868,19 +907,20 @@ async function fetchBodyweightData() {
   return data || [];
 }
 
-function renderProgress(mainLiftData, bodyweightData, volumeSets, sessionTimestamps) {
+function renderProgress(mainLiftData, bodyweightData, volumeSets, sessionTimestamps, goals) {
   const root = document.getElementById('progress-root');
 
   const liftCards = LIFT_ORDER.map(category => {
     const points = bestPerDate(mainLiftData[category]).map(e => ({ x: e.ts, y: e.e1rm }));
     const current = points.length ? points[points.length - 1].y : null;
+    const goal = goals && goals[category];
     return `
       <div class="lift-progress-card">
         <div class="lift-progress-header">
           <span class="lift-name">${liftDot(category)}${LIFT_LABELS[category]}</span>
           ${current ? `<span class="lift-progress-header lift-current">${current.toFixed(1)} kg</span>` : ''}
         </div>
-        <div class="chart-container">${renderTrendChart(points, LIFT_COLOR_VARS[category])}</div>
+        <div class="chart-container">${renderTrendChart(points, LIFT_COLOR_VARS[category], { goalValue: goal ? goal.target_weight_kg : null })}</div>
       </div>
     `;
   }).join('');
@@ -971,7 +1011,7 @@ function renderProgress(mainLiftData, bodyweightData, volumeSets, sessionTimesta
     </div>
     <div id="bw-message"></div>
     <div class="lift-progress-card">
-      <div class="chart-container">${renderTrendChart(bwPoints, '#ECEAE4')}</div>
+      <div class="chart-container">${renderTrendChart(bwPoints, '#ECEAE4', { hidePrBadge: true })}</div>
     </div>
 
     ${bwSorted.length ? `<div class="detail-exercise-block" style="margin-top: 10px;">${bwListHtml}</div>` : ''}
