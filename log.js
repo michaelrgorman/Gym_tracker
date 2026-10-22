@@ -166,6 +166,7 @@ async function loadTemplatesAndCatalog() {
     logState.templates = (templates || []).map(t => ({
       id: t.id,
       name: t.name,
+      notes: t.notes || '',
       exercises: (t.Workout_TemplateExercise || [])
         .sort((a, b) => a.order_index - b.order_index)
         .map(te => ({
@@ -197,10 +198,13 @@ function renderStartScreen() {
             <div class="name">${escapeHtml(t.name)}</div>
             <div class="meta">${t.exercises.length} exercise${t.exercises.length === 1 ? '' : 's'}</div>
           </div>
-          <button data-template-id="${t.id}" class="start-template-btn">Start</button>
+          <div style="display:flex; gap:8px; flex-shrink:0;">
+            <button data-template-id="${t.id}" class="edit-template-btn">Edit</button>
+            <button data-template-id="${t.id}" class="start-template-btn">Start</button>
+          </div>
         </div>
       `).join('')
-    : `<div class="inline-message">No templates saved yet. Start blank and we'll add template-saving later.</div>`;
+    : `<div class="inline-message">No templates yet. Use "+ Create new template" below.</div>`;
 
   root.innerHTML = `
     ${renderActiveProgramCard()}
@@ -221,6 +225,10 @@ function renderStartScreen() {
       const template = logState.templates.find(t => t.id === Number(btn.dataset.templateId));
       startFromTemplate(template);
     });
+  });
+
+  root.querySelectorAll('.edit-template-btn').forEach(btn => {
+    btn.addEventListener('click', () => openTemplateEditor(Number(btn.dataset.templateId)));
   });
 
   document.getElementById('start-blank-btn').addEventListener('click', startBlankWorkout);
